@@ -1,5 +1,7 @@
 # Decorador AR para interiores
 
+[Documentazione in italiano](docs/it/README.md)
+
 Miniproyecto de Visión Artificial para decorar fotos reales de interiores con cuadros, alfombras y muebles 3D.
 
 El plan técnico y experimental está en [docs/PLAN.md](docs/PLAN.md). La propuesta inicial está disponible en [español](docs/propuesta_inicial.pdf) e [italiano](docs/proposta_iniziale_IT.pdf).
