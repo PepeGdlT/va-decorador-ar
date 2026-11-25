@@ -1,0 +1,6 @@
+-r requirements-photo.txt
+notebook
+matplotlib
+nbclient
+ipympl
+ipywidgets

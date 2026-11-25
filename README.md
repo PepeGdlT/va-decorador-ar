@@ -1,12 +1,37 @@
 # Decorador AR para interiores
 
-Miniproyecto de Visión Artificial: colocación y visualización de objetos 3D en interiores mediante profundidad, geometría de cámara y realidad aumentada en vídeo.
+Miniproyecto de Visión Artificial para decorar fotos reales de interiores con cuadros, alfombras y muebles 3D.
 
 El plan técnico y experimental está en [docs/PLAN.md](docs/PLAN.md). La propuesta inicial está disponible en [español](docs/propuesta_inicial.pdf) e [italiano](docs/proposta_iniziale_IT.pdf).
 
+## Abrir en PyCharm
+
+Abre la carpeta raíz `va-decorador-ar`. En **Settings → Project → Python Interpreter**, selecciona el intérprete de `.venv\Scripts\python.exe` si PyCharm no lo detecta. En una instalación nueva puedes preparar el entorno desde la terminal del proyecto:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-pycharm.txt
+```
+
+En el desplegable junto a ▶ están las configuraciones numeradas. Cada ejecución crea su propia carpeta dentro de `results/` e imprime su ruta en la consola.
+
+| Configuración | Qué ejecuta |
+| --- | --- |
+| 01 - Ejecutar notebook principal | Ejecuta diseños 2D, pruebas de muebles 3D y evaluación ADE20K si está disponible. Guarda una copia con salidas en `decorador-ejecutado.ipynb`. |
+| 02 - Probar foto guiada de ADE20K | Extrae una foto del ZIP, segmenta las superficies y aplica la colocación guiada del cuadro. |
+| 03 - Estudiar 9 fotos de ADE20K | Ejecuta el ensayo automático experimental y escribe un CSV de resultados. |
+| 04 - Demo AR sintética | Genera la secuencia, los vídeos aumentados y los CSV de vídeo. |
+| 05 - Generar marcador ArUco | Guarda un marcador PNG imprimible. |
+
+Las configuraciones 02 y 03 requieren `data/raw/ADEChallengeData2016.zip` ([descarga y notas](data/README.md)). Para usar el editor interactivo, ejecuta el notebook principal abierto en PyCharm.
+
 ## Empezar con fotos reales
 
-El [notebook de diagnóstico](notebooks/01_diagnostico_colocacion.ipynb) muestra la foto, los errores de la máscara, las referencias de perspectiva, las esquinas editables y la proyección con los módulos del proyecto.
+Abre [Decorador_AR.ipynb](notebooks/Decorador_AR.ipynb) con el kernel de `.venv`. Incluye diseños sobre seis vistas reales de ZInD, seis vistas para probar muebles y dos vistas de cocina para probar apoyos elevados. La primera ejecución descarga las vistas necesarias. El notebook de diagnóstico conserva el ensayo de ADE20K.
+
+En **Componer una habitación**, cambia X e Y, escala o giro para ver la pieza antes de fijarla con **Añadir en X, Y**. Para usar el clic sobre la foto, activa `CLICKABLE` en un visor que muestre el lienzo de Matplotlib. **Guardar PNG** guarda las piezas confirmadas de la vista actual.
+
+Para probar los apoyos, elige **cocina_01 → En altura → Detectar apoyos**. El contorno cian señala una zona de la encimera y **Apoyo** rellena el centro. También puedes elegir los tableros de los muebles virtuales o marcar cuatro esquinas y una altura relativa a la cámara. La detección combina segmentación y profundidad estimada. Necesita una referencia visible del suelo y puede omitir apoyos estrechos, tapados o mal segmentados. Con **Luz y sombra** puedes comparar el ajuste de brillo y color local y las sombras de contacto de las piezas 3D.
 
 La primera etapa distingue pared y suelo. Para decorar, el modo guiado recibe las cuatro esquinas de cada pieza, marcadas siguiendo las líneas de la habitación. El programa proyecta la textura y descarta las ubicaciones que contradicen la máscara de la superficie. Sin esquinas, exporta las máscaras. El ensayo de colocación automática aproximada está disponible con `--experimental`.
 
@@ -19,11 +44,13 @@ python -m decorador_ar photo-study data/raw/ADEChallengeData2016.zip results/ade
 
 El estudio toma fotos reales de validación del ZIP de ADE20K y guarda un CSV con IoU por superficie, las colocaciones que pudo realizar y la proporción de píxeles colocados sobre la clase correcta. Usa `--offset` para evaluar otro tramo de la muestra. Una foto sola admite `--annotation` para comparar con un PNG indexado ADE y `--art` y `--rug` para suministrar texturas propias.
 
+Para estudios grandes, añade `--metrics-only`. Conserva el mismo CSV y evita generar copias de las imágenes y montajes. El CSV guarda cada fila conforme termina la foto. `estudio.json` registra el tramo de validación y la revisión del modelo.
+
 El JSON admite `wall` y `floor`. Indica los píxeles en orden superior izquierda, superior derecha, inferior derecha e inferior izquierda. Hay dos ejemplos correspondientes a fotos concretas de ADE20K en [assets/planes](assets/planes). La prueba por lotes sigue midiendo el modo experimental.
 
-## Línea de vídeo
+## Experimentos de vídeo aparte
 
-El prototipo previo calibra una cámara, estima su posición con ArUco, proyecta una mesa 3D en un vídeo grabado y exporta métricas por fotograma. Queda como base para la última etapa.
+El prototipo previo de ArUco y la reproyección con las poses de TUM se conservan como experimentos independientes. El notebook principal se centra en fotografías.
 
 ## Ejecutar en PowerShell
 
@@ -34,6 +61,12 @@ python -m decorador_ar demo results/demo-inicial
 ```
 
 La carpeta de salida debe estar vacía. Contendrá el vídeo original sintético, la calibración, las dos versiones aumentadas y sendos CSV. La exportación MP4 contiene imagen a frecuencia constante y se escribe sin pista de audio.
+
+Pruebas del repositorio desde la raíz, con `PYTHONPATH` configurado como arriba:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
 
 ## Grabar un primer vídeo real
 

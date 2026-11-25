@@ -16,8 +16,11 @@ class Camera:
 
     @classmethod
     def load(cls, path):
-        with np.load(path) as data:
-            camera = cls(data["matrix"], data["distortion"], tuple(data["size"]))
+        with np.load(path, allow_pickle=False) as data:
+            size = data["size"]
+            if size.shape != (2,) or not np.issubdtype(size.dtype, np.integer):
+                raise ValueError("La resolución calibrada debe contener dos enteros.")
+            camera = cls(data["matrix"], data["distortion"], tuple(map(int, size)))
         if (camera.matrix.shape != (3, 3) or not np.isfinite(camera.matrix).all()
                 or min(camera.matrix[0, 0], camera.matrix[1, 1]) <= 0
                 or not np.isfinite(camera.distortion).all()

@@ -1,79 +1,65 @@
-"""Reproducible development sample from the official ADE20K ZIP."""
+"""Run reproducible experiments over ADE20K validation images."""
 import csv
-from io import BytesIO
-from itertools import zip_longest
+import json
 from pathlib import Path
 from zipfile import ZipFile
 
-import numpy as np
+from .ade import ADEValidation
+from .image_io import decode_image
+from .photo import Segmenter, analyze_photo, decode_labels, save_photo_result
 
-from .photo import LABELS, Segmenter, process_photo
+FIELDS = ("image", "scene", "wall_iou", "floor_iou", "picture_placed",
+          "rug_placed", "picture_on_wall", "rug_on_floor")
 
-ROOMS = ("bedroom", "living_room", "dining_room")
 
-
-def study(archive, output, count, offset=0):
-    from PIL import Image
-
+def study(archive, output, count, offset=0, *, metrics_only=False, segmenter=None):
     if count <= 0 or offset < 0:
         raise ValueError("Usa un número de fotos positivo y un desplazamiento no negativo.")
     output = Path(output)
+    if output.exists():
+        raise FileExistsError(f"La salida ya existe: {output}")
+
+    rows = []
+    textures = {}
     with ZipFile(archive) as source:
-        category_file = next((name for name in source.namelist()
-                              if name.endswith("/sceneCategories.txt")), None)
-        if category_file is None:
-            raise ValueError("El ZIP debe incluir sceneCategories.txt.")
-        categories = dict(line.split(maxsplit=1)
-                          for line in source.read(category_file).decode().splitlines()
-                          if line.strip())
-        names = sorted(name for name in source.namelist()
-                       if "/annotations/validation/ADE_val_" in name and name.endswith(".png"))
-        by_room = {room: [] for room in ROOMS}
-        for name in names:
-            room = categories.get(Path(name).stem)
-            if room in by_room:
-                by_room[room].append(name)
-
-        def eligible(paths):
-            for name in paths:
-                encoded = source.read(name)
-                with Image.open(BytesIO(encoded)) as image:
-                    mask = np.asarray(image)
-                if all(np.mean(mask == label) >= 0.08 for label in LABELS.values()):
-                    yield name, encoded
-
-        rounds = zip_longest(*(eligible(by_room[room]) for room in ROOMS))
-        selected = []
-        for batch in rounds:
-            selected.extend(pair for pair in batch if pair is not None)
-            if len(selected) >= offset + count:
-                break
-        selected = selected[offset:offset + count]
+        dataset = ADEValidation(source)
+        selected = list(dataset.sample(count, offset))
         if len(selected) < count:
             raise ValueError(f"Solo se encontraron {len(selected)} pares elegibles.")
-        segmenter = Segmenter()
+        if segmenter is None:
+            segmenter = Segmenter()
+        output.mkdir(parents=True, exist_ok=False)
+        (output / "estudio.json").write_text(json.dumps({
+            "archive": Path(archive).name, "split": "validation",
+            "requested_count": count, "offset": offset,
+            "model": segmenter.model_id, "revision": segmenter.revision,
+            "placement": "experimental", "metrics_only": metrics_only,
+        }, indent=2), encoding="utf-8")
         inputs = output / "entradas"
-        inputs.mkdir(parents=True, exist_ok=False)
-        rows = []
-        for name, encoded in selected:
-            stem = Path(name).stem
-            annotation, image = inputs / f"{stem}.png", inputs / f"{stem}.jpg"
-            photograph = name.replace("/annotations/", "/images/").removesuffix(".png") + ".jpg"
-            annotation.write_bytes(encoded)
-            image.write_bytes(source.read(photograph))
-            result = process_photo(image, output / stem, segmenter, annotation, experimental=True)
-            rows.append({
-                "image": stem,
-                "scene": categories[stem],
-                "wall_iou": result["surfaces"]["wall"]["iou"],
-                "floor_iou": result["surfaces"]["floor"]["iou"],
-                "picture_placed": result["surfaces"]["wall"]["quad_px"] is not None,
-                "rug_placed": result["surfaces"]["floor"]["quad_px"] is not None,
-                "picture_on_wall": result["surfaces"]["wall"]["placement_on_labeled_surface"],
-                "rug_on_floor": result["surfaces"]["floor"]["placement_on_labeled_surface"],
-            })
-    with (output / "resumen.csv").open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
+        if not metrics_only:
+            inputs.mkdir()
+        with (output / "resumen.csv").open("x", encoding="utf-8", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=FIELDS)
+            writer.writeheader()
+            for stem, room in selected:
+                name = stem + ".jpg"
+                encoded, annotation = dataset.encoded_pair(stem)
+                result = analyze_photo(
+                    decode_image(encoded, name), name, segmenter, truth=decode_labels(annotation),
+                    textures=textures, experimental=True, include_images=not metrics_only,
+                )
+                if not metrics_only:
+                    save_photo_result(output / stem, result)
+                    (inputs / name).write_bytes(encoded)
+                    (inputs / (stem + ".png")).write_bytes(annotation)
+                surfaces = result.measurements["surfaces"]
+                wall, floor = surfaces["wall"], surfaces["floor"]
+                row = dict(zip(FIELDS, (
+                    stem, room, wall["iou"], floor["iou"], wall["quad_px"] is not None,
+                    floor["quad_px"] is not None, wall["placement_on_labeled_surface"],
+                    floor["placement_on_labeled_surface"],
+                )))
+                writer.writerow(row)
+                stream.flush()
+                rows.append(row)
     return rows

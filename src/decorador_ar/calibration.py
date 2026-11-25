@@ -4,20 +4,21 @@ import cv2 as cv
 import numpy as np
 
 from .geometry import Camera
+from .image_io import read_image
 
 
 def calibrate(folder, columns, rows, square_m):
+    if min(columns, rows) < 3 or not 0 < square_m < np.inf:
+        raise ValueError("Dimensiones del tablero no válidas.")
     pattern = (columns, rows)
     points = np.zeros((columns * rows, 3), np.float32)
     points[:, :2] = np.mgrid[:columns, :rows].T.reshape(-1, 2) * square_m
     object_points, image_points = [], []
     size = None
     for path in sorted(Path(folder).iterdir()):
-        if path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".bmp"}:
+        if not path.is_file() or path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".bmp"}:
             continue
-        gray = cv.imdecode(np.fromfile(path, dtype=np.uint8), cv.IMREAD_GRAYSCALE)
-        if gray is None:
-            raise ValueError(f"No se pudo leer {path}")
+        gray = read_image(path, cv.IMREAD_GRAYSCALE)
         found, corners = cv.findChessboardCornersSB(gray, pattern)
         if found:
             current_size = gray.shape[::-1]

@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="03 - Estudiar 9 fotos de ADE20K" type="PythonConfigurationType" factoryName="Python">
+    <module name="va-decorador-ar" />
+    <option name="IS_MODULE_SDK" value="true" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/run_pycharm.py" />
+    <option name="PARAMETERS" value="study" />
+    <option name="MODULE_MODE" value="false" />
+    <envs>
+      <env name="OMP_NUM_THREADS" value="4" />
+      <env name="PYTHONUTF8" value="1" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>

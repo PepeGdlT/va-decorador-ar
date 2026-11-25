@@ -1,4 +1,5 @@
 """Conservative placement and photographic compositing."""
+from dataclasses import dataclass
 from pathlib import Path
 
 import cv2 as cv
@@ -6,6 +7,21 @@ import numpy as np
 
 
 ASSETS = Path(__file__).resolve().parents[2] / "assets"
+
+
+@dataclass
+class Placement:
+    image: np.ndarray
+    quad: np.ndarray
+    coverage: float
+    surface: str
+
+
+def polygon_coverage(polygon, region):
+    footprint = cv.fillConvexPoly(
+        np.zeros(region.shape, np.uint8), np.rint(polygon).astype(np.int32), 1
+    ).astype(bool)
+    return float(np.mean(region[footprint])) if footprint.any() else 0.0
 
 
 def default_asset(surface, read_image):
@@ -115,6 +131,13 @@ def choose_quad(image, mask, confidence, surface, aspect):
     return max(candidates, key=lambda pair: pair[0])[1] if candidates else None
 
 
+def placement_alpha(polygon, region):
+    outline = cv.fillConvexPoly(np.zeros(region.shape, np.uint8),
+                               np.rint(polygon * 16).astype(np.int32),
+                               255, lineType=cv.LINE_AA, shift=4)
+    return (outline.astype(np.float32) / 255) * region
+
+
 def composite(output, asset, polygon, region, surface):
     h, w = asset.shape[:2]
     far_width = np.linalg.norm(polygon[1] - polygon[0])
@@ -131,10 +154,7 @@ def composite(output, asset, polygon, region, surface):
     matrix = cv.getPerspectiveTransform(corners, polygon)
     size = output.shape[1::-1]
     projected = cv.warpPerspective(asset, matrix, size, borderMode=cv.BORDER_REPLICATE)
-    outline = cv.fillConvexPoly(np.zeros(output.shape[:2], np.uint8),
-                               np.rint(polygon * 16).astype(np.int32),
-                               255, lineType=cv.LINE_AA, shift=4).astype(np.float32) / 255
-    alpha = outline * region
+    alpha = placement_alpha(polygon, region)
     blur = max(.65, min(size) * .0028)
     shadow = cv.GaussianBlur(alpha, (0, 0), blur)
     offset = max(1, round(blur))
