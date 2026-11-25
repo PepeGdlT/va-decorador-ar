@@ -4,7 +4,7 @@ import cv2 as cv
 import numpy as np
 
 from decorador_ar.geometry import Camera, Pose
-from decorador_ar.photo_furniture import Support, rectangle, validate_projection
+from decorador_ar.photo_furniture import MODELS, Support, _floor_mesh, rectangle, render_furniture_layers, validate_projection
 from decorador_ar.render import box, draw_furniture_depth
 from decorador_ar.supported_objects import prepare_accessory, support_points
 
@@ -51,3 +51,20 @@ class FurnitureDepthTest(unittest.TestCase):
             prepare_accessory("plato", (54, 48), support)
         with self.assertRaisesRegex(ValueError, "demasiado alto"):
             prepare_accessory("jarron", (48, 48), support)
+
+    def test_new_models_and_depth_occlusion(self):
+        for name in ("sofa", "silla", "planta_de_pie"):
+            self.assertIn(name, MODELS)
+            parts, _ = _floor_mesh(MODELS[name], *MODELS[name].dimensions)
+            self.assertGreaterEqual(len(parts), 4)
+        camera = Camera(np.array([[80., 0, 48], [0, 80., 48], [0, 0, 1]]),
+                        np.zeros(5), (96, 96))
+        pose = Pose(np.zeros((3, 1)), np.zeros((3, 1)))
+        mesh = box(-.3, -.3, 2., .6, .6, .2, (0, 0, 255))
+        from decorador_ar.photo_furniture import FurnitureLayer
+        layer = FurnitureLayer((mesh,), pose, camera, np.float32([[20, 20], [70, 20], [70, 70], [20, 70]]), 1.)
+        image = np.zeros((96, 96, 3), np.uint8)
+        mask = np.zeros((96, 96), bool)
+        closer_depth = np.full((96, 96), 1.0, dtype=np.float32)
+        occluded = render_furniture_layers(image, mask, [layer], lighting=False, depth_map=closer_depth)
+        self.assertEqual(int(occluded.sum()), 0)

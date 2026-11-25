@@ -117,11 +117,11 @@ def show_registration(scenes, first="bonus_01", second="bonus_02"):
     orb = cv.ORB_create(nfeatures=2200)
     keys_a, desc_a = orb.detectAndCompute(cv.cvtColor(a.image, cv.COLOR_BGR2GRAY), None)
     keys_b, desc_b = orb.detectAndCompute(cv.cvtColor(b.image, cv.COLOR_BGR2GRAY), None)
-    if desc_a is None or desc_b is None:
+    if desc_a is None or desc_b is None or len(desc_a) < 2 or len(desc_b) < 2:
         raise ValueError("No hay suficientes puntos ORB en una de las vistas.")
     matches = [pair[0] for pair in cv.BFMatcher(cv.NORM_HAMMING).knnMatch(desc_a, desc_b, k=2)
                if len(pair) == 2 and pair[0].distance < .8 * pair[1].distance]
-    if len(matches) < 8:
+    if len(matches) < 4:
         raise ValueError("No hay suficientes correspondencias para comparar los ajustes.")
     src = np.float32([keys_a[m.queryIdx].pt for m in matches])
     dst = np.float32([keys_b[m.trainIdx].pt for m in matches])
@@ -130,10 +130,12 @@ def show_registration(scenes, first="bonus_01", second="bonus_02"):
                       for y in np.linspace(40, height - 40, 9)])
     expected = project(reference, check)
     visible = np.all((expected >= 0) & (expected < [width, height]), axis=1)
+    if np.count_nonzero(visible) < 4:
+        raise ValueError("La referencia no deja suficientes puntos de control visibles.")
     cv.setRNGSeed(42)
     fit, inliers = cv.findHomography(src, dst, cv.RANSAC, 3.)
     baseline, _ = cv.findHomography(src, dst, 0)
-    if fit is None or baseline is None:
+    if fit is None or baseline is None or inliers is None:
         raise ValueError("Los puntos no permiten ajustar una homografía.")
     for label, matrix in (("RANSAC", fit), ("Sin rechazo robusto", baseline)):
         errors = np.linalg.norm(project(matrix, check[visible]) - expected[visible], axis=1)
@@ -157,3 +159,153 @@ def show_registration(scenes, first="bonus_01", second="bonus_02"):
     for ax in axes:
         ax.axis("off")
     return fig
+
+
+def ransac_sensitivity(scenes, first="bonus_01", second="bonus_02", thresholds=(1.5, 3.0, 5.0, 8.0)):
+    """Measure ORB homography accuracy across RANSAC reprojection thresholds (BT7d)."""
+    thresholds = tuple(float(value) for value in thresholds)
+    if not thresholds or not np.isfinite(thresholds).all() or any(value <= 0 for value in thresholds):
+        raise ValueError("Los umbrales de RANSAC deben ser valores positivos y finitos.")
+    a, b = scenes[first], scenes[second]
+    reference = b.intrinsics @ _rotation_reference(first, second) @ np.linalg.inv(a.intrinsics)
+    orb = cv.ORB_create(nfeatures=2200)
+    keys_a, desc_a = orb.detectAndCompute(cv.cvtColor(a.image, cv.COLOR_BGR2GRAY), None)
+    keys_b, desc_b = orb.detectAndCompute(cv.cvtColor(b.image, cv.COLOR_BGR2GRAY), None)
+    if desc_a is None or desc_b is None or len(desc_a) < 2 or len(desc_b) < 2:
+        raise ValueError("No hay suficientes puntos ORB en una de las vistas.")
+    matches = [pair[0] for pair in cv.BFMatcher(cv.NORM_HAMMING).knnMatch(desc_a, desc_b, k=2)
+               if len(pair) == 2 and pair[0].distance < .8 * pair[1].distance]
+    if len(matches) < 4:
+        raise ValueError("No hay suficientes correspondencias para ajustar la homografía.")
+    src = np.float32([keys_a[m.queryIdx].pt for m in matches])
+    dst = np.float32([keys_b[m.trainIdx].pt for m in matches])
+    width, height = a.image.shape[1::-1]
+    check = np.array([(x, y) for x in np.linspace(40, width - 40, 12)
+                      for y in np.linspace(40, height - 40, 9)])
+    expected = project(reference, check)
+    visible = np.all((expected >= 0) & (expected < [width, height]), axis=1)
+    if np.count_nonzero(visible) < 4:
+        raise ValueError("La referencia no deja suficientes puntos de control visibles.")
+    rows = []
+    for thresh in thresholds:
+        cv.setRNGSeed(42)
+        fit, inliers = cv.findHomography(src, dst, cv.RANSAC, float(thresh))
+        if fit is None or inliers is None:
+            raise ValueError(f"No se pudo ajustar una homografía con umbral {thresh:g} px.")
+        errors = np.linalg.norm(project(fit, check[visible]) - expected[visible], axis=1)
+        inlier_count = int(inliers.sum())
+        rows.append({
+            "threshold_px": float(thresh),
+            "matches": len(matches),
+            "inliers": inlier_count,
+            "inlier_ratio": inlier_count / len(matches),
+            "check_points": int(np.count_nonzero(visible)),
+            "median_px": float(np.median(errors)),
+            "rmse_px": float(np.sqrt(np.mean(errors ** 2))),
+        })
+    return rows
+
+
+def evaluate_translation_pair(path_a, path_b, segmenter, *, wall_quad=None, max_width=960):
+    """Explore wall-only ORB/RANSAC transfer; wall_quad uses resized-image pixels."""
+    from .image_io import read_image
+    from .placement import composite, default_asset, polygon_coverage
+
+    if wall_quad is None:
+        raise ValueError("Marca wall_quad manualmente sobre una pared plana visible en ambas fotos.")
+    if not isinstance(max_width, (int, np.integer)) or max_width <= 0:
+        raise ValueError("max_width debe ser un entero positivo.")
+
+    def load_resized(path):
+        img = read_image(path)
+        h, w = img.shape[:2]
+        if w > max_width:
+            scale = max_width / w
+            img = cv.resize(img, (max_width, round(h * scale)), interpolation=cv.INTER_AREA)
+        return img
+
+    img_a, img_b = load_resized(path_a), load_resized(path_b)
+    quad_a = np.asarray(wall_quad, dtype=np.float32)
+    if (quad_a.shape != (4, 2) or not np.isfinite(quad_a).all()
+            or not cv.isContourConvex(quad_a) or cv.contourArea(quad_a) < 100):
+        raise ValueError("wall_quad debe contener cuatro esquinas convexas de una pared plana.")
+    h, w = img_a.shape[:2]
+    if np.any(quad_a < 0) or np.any(quad_a >= [w, h]):
+        raise ValueError("wall_quad debe quedar dentro de la primera foto redimensionada.")
+
+    masks_a = segmenter.predict(img_a, supports=True)
+    masks_b = segmenter.predict(img_b, supports=True)
+    mask_a = masks_a["wall"][0].astype(np.uint8) * 255
+    mask_b = masks_b["wall"][0].astype(np.uint8) * 255
+    coverage_a = polygon_coverage(quad_a, mask_a > 0)
+    if coverage_a < .9:
+        raise ValueError(f"La pared marcada solo coincide en un {coverage_a:.0%} con la máscara de pared.")
+    orb = cv.ORB_create(nfeatures=2200)
+    ka, da = orb.detectAndCompute(cv.cvtColor(img_a, cv.COLOR_BGR2GRAY), mask_a)
+    kb, db = orb.detectAndCompute(cv.cvtColor(img_b, cv.COLOR_BGR2GRAY), mask_b)
+    if da is None or db is None or len(da) < 2 or len(db) < 2:
+        raise ValueError("No hay suficientes puntos ORB en la pared marcada.")
+    matches = [pair[0] for pair in cv.BFMatcher(cv.NORM_HAMMING).knnMatch(da, db, k=2)
+               if len(pair) == 2 and pair[0].distance < .8 * pair[1].distance]
+    if len(matches) < 4:
+        raise ValueError("No hay suficientes correspondencias ORB dentro de las paredes.")
+    src_all = np.float32([ka[m.queryIdx].pt for m in matches])
+    dst_all = np.float32([kb[m.trainIdx].pt for m in matches])
+    cv.setRNGSeed(42)
+    provisional, _ = cv.findHomography(src_all, dst_all, cv.RANSAC, 3.0)
+    if provisional is None:
+        raise ValueError("No se pudo localizar provisionalmente la pared en la segunda foto.")
+    quad_b = project(provisional, quad_a).astype(np.float32)
+    h_b, w_b = img_b.shape[:2]
+    if (not np.isfinite(quad_b).all() or not cv.isContourConvex(quad_b)
+            or cv.contourArea(quad_b) < 100
+            or np.any(quad_b < 0) or np.any(quad_b >= [w_b, h_b])):
+        raise ValueError("La pared localizada queda fuera de la segunda foto o no es válida.")
+    matches = [
+        match for match in matches
+        if cv.pointPolygonTest(quad_a, ka[match.queryIdx].pt, False) >= 0
+        and cv.pointPolygonTest(quad_b, kb[match.trainIdx].pt, False) >= 0
+    ]
+    if len(matches) < 4:
+        raise ValueError("No hay cuatro correspondencias dentro del mismo plano marcado.")
+    src = np.float32([ka[m.queryIdx].pt for m in matches])
+    dst = np.float32([kb[m.trainIdx].pt for m in matches])
+    cv.setRNGSeed(42)
+    fit, inliers = cv.findHomography(src, dst, cv.RANSAC, 3.0)
+    if fit is None or inliers is None:
+        raise ValueError("No se pudo ajustar una homografía con las correspondencias del plano.")
+    quad_b = project(fit, quad_a).astype(np.float32)
+    if (not np.isfinite(quad_b).all() or not cv.isContourConvex(quad_b)
+            or cv.contourArea(quad_b) < 100
+            or np.any(quad_b < 0) or np.any(quad_b >= [w_b, h_b])):
+        raise ValueError("La homografía del plano proyecta la pared fuera de la segunda foto.")
+    coverage_b = polygon_coverage(quad_b, masks_b["wall"][0])
+    if coverage_b < .9:
+        raise ValueError(f"La pared proyectada solo coincide en un {coverage_b:.0%} con la segunda máscara.")
+    art = default_asset("wall", read_image)
+    full_mask_a = np.ones(img_a.shape[:2], bool)
+    full_mask_b = np.ones(img_b.shape[:2], bool)
+    out_a, out_b_geo, out_b_seg = img_a.copy(), img_b.copy(), img_b.copy()
+    composite(out_a, art, quad_a, full_mask_a, "wall")
+    composite(out_b_geo, art, quad_b, full_mask_b, "wall")
+    composite(out_b_seg, art, quad_b, masks_b["wall"][0], "wall")
+    fig, axes = plt.subplots(1, 3, figsize=(15, 6), layout="constrained")
+    axes[0].imshow(out_a[:, :, ::-1])
+    axes[0].set_title("Vista 1 (cuadro colocado)")
+    axes[1].imshow(out_b_geo[:, :, ::-1])
+    axes[1].set_title(f"Vista 2 por ORB+RANSAC ({int(inliers.sum())}/{len(matches)} inliers)")
+    axes[2].imshow(out_b_seg[:, :, ::-1])
+    axes[2].set_title("Vista 2 filtrada por máscara wall")
+    for ax in axes:
+        ax.axis("off")
+    return fig, {
+        "matches": len(matches),
+        "inliers": int(inliers.sum()),
+        "inlier_ratio": float(inliers.mean()),
+        "wall_coverage_a": coverage_a,
+        "wall_coverage_b": coverage_b,
+        "wall_a": float(masks_a["wall"][0].mean()),
+        "floor_a": float(masks_a["floor"][0].mean()),
+        "wall_b": float(masks_b["wall"][0].mean()),
+        "floor_b": float(masks_b["floor"][0].mean()),
+    }

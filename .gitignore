@@ -10,6 +10,7 @@ venv/
 # Datos, modelos y resultados pesados
 data/raw/
 data/processed/
+data/own/
 models/
 results/*
 !results/.gitkeep

@@ -6,6 +6,8 @@ Miniproyecto de Visión Artificial para decorar fotos reales de interiores con c
 
 El plan técnico y experimental está en [docs/PLAN.md](docs/PLAN.md). La propuesta inicial está disponible en [español](docs/propuesta_inicial.pdf) e [italiano](docs/proposta_iniziale_IT.pdf).
 
+Para preparar la demostración, consulta el [guion de exposición](docs/GUIA_EXPO.md) y las [instrucciones de cierre para el compañero](docs/COMPANION_HANDOFF.md).
+
 ## Abrir en PyCharm
 
 Abre la carpeta raíz `va-decorador-ar`. En **Settings → Project → Python Interpreter**, selecciona el intérprete de `.venv\Scripts\python.exe` si PyCharm no lo detecta. En una instalación nueva puedes preparar el entorno desde la terminal del proyecto:

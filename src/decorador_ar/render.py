@@ -61,22 +61,51 @@ def draw_furniture(frame, pieces, pose, camera):
         cv.polylines(frame, [polygon], True, (55, 65, 75), 1, cv.LINE_AA)
 
 
+def load_obj(path, color, *, scale=1.0, center_xy=True, ground_z=0.0):
+    """Load a Wavefront .obj mesh into (vertices, color, faces) for draw_furniture_depth."""
+    vertices, faces = [], []
+    with open(path, encoding="utf-8") as stream:
+        for line in stream:
+            parts = line.strip().split()
+            if not parts:
+                continue
+            if parts[0] == "v" and len(parts) >= 4:
+                vertices.append([float(parts[1]), float(parts[2]), float(parts[3])])
+            elif parts[0] == "f" and len(parts) >= 4:
+                face = [int(token.split("/")[0]) - 1 for token in parts[1:]]
+                faces.append(tuple(face))
+    if not vertices or not faces:
+        raise ValueError(f"El archivo OBJ no contiene vértices o caras válidas: {path}")
+    pts = np.asarray(vertices, dtype=float) * scale
+    if center_xy:
+        pts[:, 0] -= (pts[:, 0].min() + pts[:, 0].max()) / 2
+        pts[:, 1] -= (pts[:, 1].min() + pts[:, 1].max()) / 2
+    pts[:, 2] += ground_z - pts[:, 2].min()
+    return pts, color, tuple(faces)
+
+
 def draw_furniture_depth(frame, pieces, pose, camera, *, inverse_depth=None, light=1.):
-    """Rasterize visible faces with a depth buffer shared by all mesh parts."""
+    """Rasterize visible faces with directional Lambert shading and a shared depth buffer."""
     height, width = frame.shape[:2]
     if inverse_depth is None:
         inverse_depth = np.zeros((height, width), dtype=np.float32)
+    # Key light from upper-front-left in camera coordinates.
+    light_dir = np.array([-0.35, -0.65, -0.67], dtype=np.float32)
+    light_dir /= np.linalg.norm(light_dir)
     for points, color, *mesh_faces in pieces:
         local = pose.camera_points(points)
         pixels = pose.project(points, camera)
         faces = mesh_faces[0] if mesh_faces else FACES
-        shades = ([.68, 1., *([.82] * (len(faces) - 2))] if mesh_faces else LIGHT)
-        for face, shade in zip(faces, shades):
+        for face in faces:
             face = np.asarray(face)
             polygon = local[face]
             normal = np.cross(polygon[1] - polygon[0], polygon[2] - polygon[0])
-            if np.dot(normal, polygon[0]) >= 0:
+            norm = np.linalg.norm(normal)
+            if norm < 1e-9 or np.dot(normal, polygon[0]) >= 0:
                 continue
+            unit_normal = normal / norm
+            lambert = max(0.0, float(np.dot(unit_normal, light_dir)))
+            shade = 0.56 + 0.44 * lambert
             shaded = np.clip(np.rint(np.asarray(color) * shade * light), 0, 255).astype(np.uint8)
             for i in range(1, len(face) - 1):
                 indices = face[[0, i, i + 1]]

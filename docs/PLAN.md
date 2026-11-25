@@ -33,9 +33,9 @@ Tópicos candidatos según la sección 6 de *Enunciados de Prácticas* 2026/2027
 | BT4 | BT4a, BT4b, BT4d · 15 % | ORB, correspondencias y traslado de la huella del cuadro. | Ampliar la comparación a otras habitaciones. |
 | BT5 | BT5d, BT5f, BT5h · 15 % | IoU, comparación con una CNN, mapas de probabilidad y umbralización sobre ADE20K. | Ampliar la muestra y medir el tiempo por modelo. |
 | BT6 | BT6a, BT6f · 10 % | SegFormer y profundidad monocular aplicada a apoyos reales. | Medir profundidad y error de altura con RGB-D. |
-| BT7 | BT7a, BT7c · 10 % | RANSAC frente al ajuste sin rechazo de correspondencias. | Analizar sensibilidad del umbral e incluir más pares de vistas. |
+| BT7 | BT7a, BT7c, BT7d · 10 % | RANSAC frente al ajuste sin rechazo y sensibilidad del umbral en dos vistas con giro conocido. Se registran coincidencias, inliers, mediana y RMSE en puntos de control. | Repetir con más pares. La prueba con traslación no tiene todavía puntos independientes y no se presenta como validación. |
 
-La selección con evidencia en el cuaderno suma **105 %**. El enunciado exige **100 % en evaluación continua** y **120 % en evaluación global**. La cobertura está sujeta al criterio del profesor.
+La selección propuesta suma **105 %**. Según el resumen actual del equipo, el objetivo sería **100 % en evaluación continua** y **120 % en evaluación global**; hay que cotejar estos umbrales con la versión oficial del enunciado y el criterio del profesor antes de presentarlos como requisito.
 
 **Orden de integración.** Validar el apoyo y la perspectiva en más fotos. Después, probar estabilidad con dos puntos de vista de la misma estancia e integrar ocultación con profundidad RGB-D.
 
