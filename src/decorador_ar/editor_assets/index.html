@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decorador de interiores</title>
+  <link rel="stylesheet" href="editor.css">
+  <script type="module" src="editor.js"></script>
+</head>
+<body>
+  <main>
+    <header><h1>Decorador de interiores</h1><button id="save" type="button">Guardar PNG</button></header>
+    <div class="layout">
+      <section class="photo">
+        <div id="stage" tabindex="0" aria-label="Foto interactiva. Usa las flechas para mover la pieza y Enter para colocarla.">
+          <img id="photo" alt="Habitación seleccionada" draggable="false">
+          <img id="draft" alt="" draggable="false" hidden>
+          <canvas id="outline" aria-hidden="true"></canvas>
+        </div>
+        <p id="status" role="status">Cargando habitación…</p>
+      </section>
+      <aside>
+        <label>Habitación <select id="room"></select></label>
+        <label>Superficie <select id="surface"><option value="wall">Pared</option><option value="floor">Suelo</option><option value="raised">En altura</option></select></label>
+        <label>Pieza <select id="piece"></select></label>
+        <section id="raised" hidden>
+          <label>Apoyo <select id="support"></select></label>
+          <button id="detect" type="button">Detectar apoyos</button>
+        </section>
+        <details>
+          <summary>Ajustes</summary>
+          <label>Escala <input id="scale" type="range" min="0.25" max="1.6" step="0.05" value="1"></label>
+          <label>Giro <input id="angle" type="range" min="-90" max="90" step="1" value="0"></label>
+          <label id="vertical-row" class="check" hidden><input id="vertical" type="checkbox"> Alfombra vertical</label>
+          <label class="check"><input id="lighting" type="checkbox" checked> Luz y sombra</label>
+          <section id="manual" hidden>
+            <label>Altura relativa <input id="height" type="number" min="0.03" max="1.4" step="0.05" value="0.55"></label>
+            <button id="mark" type="button">Marcar tablero</button>
+          </section>
+        </details>
+        <hr>
+        <label>Piezas colocadas <select id="items"></select></label>
+        <button id="remove" type="button">Quitar pieza</button>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

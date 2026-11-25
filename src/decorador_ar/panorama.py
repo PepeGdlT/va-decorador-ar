@@ -39,6 +39,15 @@ SUPPORT_VIEWS = (
     ("floor_01_partial_room_06_pano_12.jpg", 0, 24, "cocina_02.jpg"),
 )
 
+EXTRA_VIEWS = (
+    ("floor_01_partial_room_17_pano_7.jpg", 0, 18, "comedor_01.jpg"),
+    ("floor_01_partial_room_17_pano_8.jpg", 0, 18, "comedor_02.jpg"),
+    ("floor_01_partial_room_14_pano_21.jpg", 0, 22, "bano.jpg"),
+    ("floor_01_partial_room_08_pano_31.jpg", 0, 18, "lavadero_01.jpg"),
+    ("floor_01_partial_room_15_pano_33.jpg", 0, 18, "garaje_01.jpg"),
+    ("floor_01_partial_room_12_pano_3.jpg", 90, 18, "salon_04.jpg"),
+)
+
 # Control clicks in photo pixels and long side of the rug in camera-height units.
 CONTROL_CASES = {
     "bonus_01": ((600, 270), (560, 540), .48),
@@ -61,7 +70,8 @@ class ZindLayout:
             for pano in partial.values()
         }
         self.views = {name: (source, yaw, pitch)
-                      for source, yaw, pitch, name in (*ZIND_VIEWS, *FURNITURE_VIEWS, *SUPPORT_VIEWS)}
+                      for source, yaw, pitch, name in (*ZIND_VIEWS, *FURNITURE_VIEWS,
+                                                       *SUPPORT_VIEWS, *EXTRA_VIEWS)}
 
     def _view(self, photo):
         name = Path(photo).name

@@ -27,11 +27,17 @@ Las configuraciones 02 y 03 requieren `data/raw/ADEChallengeData2016.zip` ([desc
 
 ## Empezar con fotos reales
 
-Abre [Decorador_AR.ipynb](notebooks/Decorador_AR.ipynb) con el kernel de `.venv`. Incluye diseños sobre seis vistas reales de ZInD, seis vistas para probar muebles y dos vistas de cocina para probar apoyos elevados. La primera ejecución descarga las vistas necesarias. El notebook de diagnóstico conserva el ensayo de ADE20K.
+Abre [Decorador_AR.ipynb](notebooks/Decorador_AR.ipynb) con el kernel de `.venv`. El editor ofrece veinte vistas reales de ZInD. El cuaderno enseña seis diseños iniciales, los apoyos de cocina y una galería de las vistas nuevas. La primera ejecución prepara las vistas. El notebook de diagnóstico conserva el ensayo de ADE20K.
 
-En **Componer una habitación**, cambia X e Y, escala o giro para ver la pieza antes de fijarla con **Añadir en X, Y**. Para usar el clic sobre la foto, activa `CLICKABLE` en un visor que muestre el lienzo de Matplotlib. **Guardar PNG** guarda las piezas confirmadas de la vista actual.
+En **Componer una habitación**, elige habitación, superficie y pieza. Mueve el ratón para ver la pieza translúcida y haz clic para fijarla. **Ajustes** contiene la escala, el giro y la luz. Si PyCharm oculta la vista integrada, abre el enlace del navegador o copia la dirección local que imprime la celda. El editor funciona mientras el kernel esté activo. **Guardar PNG** guarda las piezas confirmadas de la vista actual.
+
+Las piezas pueden continuar fuera de la foto. La parte que queda dentro debe encajar en la pared, el suelo o el apoyo elegido.
 
 Para probar los apoyos, elige **cocina_01 → En altura → Detectar apoyos**. El contorno cian señala una zona de la encimera y **Apoyo** rellena el centro. También puedes elegir los tableros de los muebles virtuales o marcar cuatro esquinas y una altura relativa a la cámara. La detección combina segmentación y profundidad estimada. Necesita una referencia visible del suelo y puede omitir apoyos estrechos, tapados o mal segmentados. Con **Luz y sombra** puedes comparar el ajuste de brillo y color local y las sombras de contacto de las piezas 3D.
+
+El apartado **Cobertura del enunciado** relaciona los experimentos con los BT. Incluye la comparación de máscaras con ADE20K y el registro de un cuadro entre dos vistas con ORB y RANSAC. Para omitir la descarga de la CNN de comparación, pon `COMPARE_CNN = False` en la sección de segmentación.
+
+## Procesar fotos por terminal
 
 La primera etapa distingue pared y suelo. Para decorar, el modo guiado recibe las cuatro esquinas de cada pieza, marcadas siguiendo las líneas de la habitación. El programa proyecta la textura y descarta las ubicaciones que contradicen la máscara de la superficie. Sin esquinas, exporta las máscaras. El ensayo de colocación automática aproximada está disponible con `--experimental`.
 
@@ -52,8 +58,6 @@ El JSON admite `wall` y `floor`. Indica los píxeles en orden superior izquierda
 
 El prototipo previo de ArUco y la reproyección con las poses de TUM se conservan como experimentos independientes. El notebook principal se centra en fotografías.
 
-## Ejecutar en PowerShell
-
 ```powershell
 python -m pip install -r requirements.txt
 $env:PYTHONPATH = 'src'
@@ -62,13 +66,7 @@ python -m decorador_ar demo results/demo-inicial
 
 La carpeta de salida debe estar vacía. Contendrá el vídeo original sintético, la calibración, las dos versiones aumentadas y sendos CSV. La exportación MP4 contiene imagen a frecuencia constante y se escribe sin pista de audio.
 
-Pruebas del repositorio desde la raíz, con `PYTHONPATH` configurado como arriba:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-```
-
-## Grabar un primer vídeo real
+### Grabar un primer vídeo real
 
 1. Fotografía un tablero de ajedrez impreso desde al menos diez ángulos y distancias. Usa la misma cámara, modo, resolución y orientación que en el vídeo. Mantén lente y zoom fijos. Mide el lado de una casilla.
 2. Genera el marcador. Imprímelo con margen blanco, fíjalo en el suelo y mide el lado del cuadrado negro. Los valores de abajo son ejemplos.
@@ -83,6 +81,13 @@ python -m decorador_ar video data/raw/salon.mp4 results/camera.npz results/salon
 Las dimensiones se dan en metros. `--xy` coloca el centro de la mesa respecto al centro del marcador. `--alpha 0.55` activa el filtro temporal. Si falta el marcador o su ajuste excede el umbral, el objeto desaparece hasta una nueva detección válida.
 
 `depth-score` acepta dos mapas registrados de profundidad en formato `.npy` y en metros. Produce MAE, RMSE, error relativo absoluto y cobertura en JSON. Consulta [el protocolo de datos](data/README.md).
+
+## Ejecutar las pruebas
+
+```powershell
+$env:PYTHONPATH = 'src'
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
 
 ## Estructura
 

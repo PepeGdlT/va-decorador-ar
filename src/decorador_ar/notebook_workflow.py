@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .catalog import DESIGN_ANCHORS, DESIGNS, texture
-from .guided import InteriorDecorator
 from .image_io import read_image
-from .panorama import CONTROL_CASES, FURNITURE_VIEWS, SUPPORT_VIEWS, ZindLayout, prepare_zind_sample
+from .panorama import (CONTROL_CASES, EXTRA_VIEWS, FURNITURE_VIEWS, SUPPORT_VIEWS,
+                       ZindLayout, prepare_zind_sample)
 from .photo_furniture import place_furniture
 from .photo_study import study
 from .rectification import place_rectified, project, select_wall
@@ -81,6 +81,18 @@ def load_support_scenes(root, segmenter):
     return _load_views(root, segmenter, prepare_zind_sample(root, views=SUPPORT_VIEWS), cases)
 
 
+def load_extra_scenes(root, segmenter):
+    cases = {
+        "comedor_01": ((730, 240), (450, 620), .4),
+        "comedor_02": ((730, 255), (491, 595), .4),
+        "bano": ((335, 310), (400, 655), .28),
+        "lavadero_01": ((520, 320), (520, 640), .29),
+        "garaje_01": ((770, 310), (440, 610), .5),
+        "salon_04": ((560, 240), (330, 590), .4),
+    }
+    return _load_views(root, segmenter, prepare_zind_sample(root, views=EXTRA_VIEWS), cases)
+
+
 def _show(ax, image, title):
     ax.imshow(cv.cvtColor(image, cv.COLOR_BGR2RGB))
     ax.set_title(title)
@@ -100,6 +112,13 @@ def show_gallery(scenes):
     for ax, (name, scene) in zip(axes.flat, scenes.items()):
         art, rug = DESIGNS[name][:2]
         _show(ax, decorate_2d(name, scene), f"{name} · {art} + {rug}")
+    return fig
+
+
+def show_photo_stock(scenes):
+    fig, axes = plt.subplots(2, 3, figsize=(13, 7), layout="constrained")
+    for ax, (name, scene) in zip(axes.flat, scenes.items()):
+        _show(ax, scene.image, name.replace("_", " ").capitalize())
     return fig
 
 
@@ -182,17 +201,6 @@ def show_rectification(scene):
         h, w = scene.image.shape[:2]
         photo_ax.set(xlim=(0, w), ylim=(h, 0))
     return fig
-
-
-def start_editor(scene, art="paisaje", rug="clasica"):
-    assets = {"wall": texture("wall", art), "floor": texture("floor", rug)}
-    def place(_image, _masks, surface, anchor, *, size, angle_deg, orientation):
-        result, _ = scene.place(surface, anchor, size * 1.5,
-                                angle=angle_deg, vertical=orientation == "vertical",
-                                asset=assets[surface])
-        return result
-
-    return InteriorDecorator(scene.image, scene.masks, place=place).show()
 
 
 def new_run(root):

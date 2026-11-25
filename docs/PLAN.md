@@ -27,15 +27,15 @@ Tópicos candidatos según la sección 6 de *Enunciados de Prácticas* 2026/2027
 
 | Bloque | Candidatos | Evidencia disponible | Para cerrar |
 | --- | --- | --- | --- |
-| BT1 | BT1a, BT1b, BT1c · 15 % | Notebook principal, composición acumulativa, galería y lanzador de PyCharm. | Registrar versiones y protocolo de evaluación. |
-| BT2 | BT2a–BT2f · 30 % | Homografías, vistas rectificadas y proyección de muebles 3D en fotos. | Medir con referencias independientes. Validar calibración y pose con fotos propias y registrar un mismo plano entre dos vistas. |
-| BT3 | BT3b, BT3d, BT3g · 20 % | Bordes y morfología en el ensayo experimental anterior. | Comparar limpieza de máscaras y bordes con una implementación propia pequeña, contrastada con OpenCV, y medir qué cambia en la colocación. |
-| BT4 | BT4b, BT4d · 10 % | Pendiente. | Hacer matching ORB entre dos fotos de la misma estancia y estimar una homografía del plano. Medir inliers y error de alineamiento. |
-| BT5 | BT5d, BT5h · 10 % | IoU por clase y lectura de logits y probabilidades de SegFormer. | Comparar umbrales con IoU, tasa de rechazo y ejemplos de errores. |
-| BT6 | BT6a, BT6f · 10 % | SegFormer aporta la segmentación con un Transformer. | Medir profundidad monocular sobre NYU Depth V2 y usarla para colocar y ocultar la mesa. |
-| BT7 | BT7a, BT7b, BT7c · 15 % | Hough en el prototipo anterior de suelo. | Integrar detección de rectas o ajuste de homografía con RANSAC y comparar con un ajuste ordinario sobre referencias adicionales. |
+| BT1 | BT1a, BT1b, BT1c · 15 % | Versiones, visualizaciones y editor por cursor. | Reservar un manifiesto fuera de la vivienda de desarrollo. |
+| BT2 | BT2a, BT2b, BT2e, BT2f · 20 % | Homografías, rectificación, transferencia entre dos vistas con giro conocido y proyección 3D. | Validar calibración y pose con fotos propias y repetir el registro con traslación. |
+| BT3 | BT3a, BT3d, BT3g · 20 % | Sombra suavizada, regiones de apoyo y comparación de morfología NumPy con OpenCV. | Medir cómo cambia la detección de apoyos sin morfología. |
+| BT4 | BT4a, BT4b, BT4d · 15 % | ORB, correspondencias y traslado de la huella del cuadro. | Ampliar la comparación a otras habitaciones. |
+| BT5 | BT5d, BT5f, BT5h · 15 % | IoU, comparación con una CNN, mapas de probabilidad y umbralización sobre ADE20K. | Ampliar la muestra y medir el tiempo por modelo. |
+| BT6 | BT6a, BT6f · 10 % | SegFormer y profundidad monocular aplicada a apoyos reales. | Medir profundidad y error de altura con RGB-D. |
+| BT7 | BT7a, BT7c · 10 % | RANSAC frente al ajuste sin rechazo de correspondencias. | Analizar sensibilidad del umbral e incluir más pares de vistas. |
 
-La selección candidata suma **110 %**. El enunciado exige **100 % en evaluación continua** y **120 % en evaluación global**. La práctica previa aporta el método. En el miniproyecto se contabilizará la evidencia de su uso nuevo, con el criterio del profesor.
+La selección con evidencia en el cuaderno suma **105 %**. El enunciado exige **100 % en evaluación continua** y **120 % en evaluación global**. La cobertura está sujeta al criterio del profesor.
 
 **Orden de integración.** Validar el apoyo y la perspectiva en más fotos. Después, probar estabilidad con dos puntos de vista de la misma estancia e integrar ocultación con profundidad RGB-D.
 
@@ -50,7 +50,7 @@ La selección candidata suma **110 %**. El enunciado exige **100 % en evaluació
 - `photo.py` y `photo_study.py` gestionan la segmentación y su evaluación con ADE20K.
 - `panorama.py` prepara las vistas de ZInD y traduce sus anotaciones al sistema de cámara.
 - `rectification.py` define la geometría de los planos y la colocación con perspectiva.
-- `placement.py` comparte composición y medidas de encaje. `guided.py` contiene los controles del notebook y el método aproximado anterior.
+- `placement.py` comparte composición y medidas de encaje. `composition.py` conserva las piezas y `editor_web.py` conecta el editor del notebook con la colocación.
 - `geometry.py`: cámara, proyección, error y estimación de pose.
 - `calibration.py` y `marker.py`: tablero de calibración y detección ArUco.
 - `render.py`: mueble paramétrico y proyección de caras.

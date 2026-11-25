@@ -1,0 +1,28 @@
+:root {
+  color-scheme: light;
+  color: #202b27;
+  background: #f5f4ef;
+  font-family: system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+main { max-width: 1130px; margin: auto; padding: 18px 20px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+h1 { font-size: clamp(1.15rem, 3vw, 1.55rem); margin: 0; letter-spacing: -.025em; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 250px); gap: 16px; align-items: start; }
+aside { background: #fff; border: 1px solid #e2e3da; border-radius: 12px; padding: 14px; }
+aside label { display: grid; gap: 5px; font-size: .86rem; font-weight: 600; margin-bottom: 11px; }
+aside .check { display: flex; align-items: center; }
+select, button, input[type=number] { font: inherit; color: inherit; min-height: 34px; border: 1px solid #cbd1c8; border-radius: 7px; padding: 4px 8px; background: white; }
+select { width: 100%; }
+button { cursor: pointer; font-size: .85rem; white-space: nowrap; }
+button:disabled { opacity: .5; cursor: default; }
+#save { background: #285b47; border-color: #285b47; color: white; padding-inline: 14px; }
+#stage { position: relative; overflow: hidden; border-radius: 12px; aspect-ratio: 4 / 3; background: #dddcd4; cursor: crosshair; touch-action: manipulation; }
+#stage img, #stage canvas { display: block; position: absolute; width: 100%; height: 100%; pointer-events: none; }
+#status { font-size: .87rem; min-height: 1.4em; margin: 8px 0; overflow-wrap: anywhere; }
+summary { cursor: pointer; margin: 10px 0; font-size: .9rem; font-weight: 600; }
+hr { border: 0; border-top: 1px solid #e2e3da; margin: 13px 0; }
+:focus-visible { outline: 2px solid #285b47; outline-offset: 2px; }
+@media (max-width: 650px) { .layout { grid-template-columns: 1fr; } }

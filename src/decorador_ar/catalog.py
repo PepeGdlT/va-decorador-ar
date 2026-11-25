@@ -1,4 +1,6 @@
 """Open Access textures and hand-curated combinations for the ZInD rooms."""
+from functools import lru_cache
+
 import cv2 as cv
 import numpy as np
 
@@ -33,6 +35,7 @@ DESIGN_ANCHORS = {
 }
 
 
+@lru_cache(maxsize=16)
 def texture(surface, name):
     if (surface, name) in (("wall", "paisaje"), ("floor", "clasica")):
         return default_asset(surface, read_image)

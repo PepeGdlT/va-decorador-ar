@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import cv2 as cv
 import numpy as np
 
-from .placement import Placement, composite, default_asset, polygon_coverage
+from .placement import Placement, composite, default_asset, polygon_coverage, visible_polygon
 from .image_io import read_image
 
 
@@ -106,15 +106,22 @@ def place_rectified(image, mask, plane, surface, anchor, length, *,
     if np.any(abs(depth) < 1e-9) or np.any(np.sign(depth) != np.sign(depth[1])):
         raise ValueError("La pieza atraviesa el horizonte del plano.")
     quad = project(plane.to_image, flat).astype(np.float32)
-    if (np.any(quad < 0) or np.any(quad >= np.array(image.shape[1::-1]) - 1)
-            or not cv.isContourConvex(quad) or cv.contourArea(quad, oriented=True) < 16):
-        raise ValueError("La pieza queda fuera del encuadre o es demasiado pequeña.")
-    if surface == "wall" and (np.any(flat < 0)
-                              or np.any(flat > [plane.width, plane.height])):
-        raise ValueError("La pieza cruza los límites de la pared elegida.")
+    if (not np.isfinite(quad).all() or np.max(abs(quad)) > 1e6
+            or not cv.isContourConvex(quad) or cv.contourArea(quad, oriented=True) <= 0):
+        raise ValueError("No se puede proyectar la pieza sobre ese plano.")
+    area, visible = visible_polygon(quad, image.shape)
+    if area < 16:
+        raise ValueError("Queda muy poca pieza visible en la foto.")
+    if surface == "wall":
+        visible_flat = plane.coordinates(visible)
+        # Projective round-trip and OpenCV clipping both round at subpixel scale.
+        tolerance = 1e-5 * max(plane.width, plane.height)
+        if (np.any(visible_flat < -tolerance)
+                or np.any(visible_flat > np.array([plane.width, plane.height]) + tolerance)):
+            raise ValueError("La parte visible cruza un límite de la pared elegida.")
     coverage = polygon_coverage(quad, mask)
     if coverage < min_coverage:
-        raise ValueError(f"Encaje de {coverage:.0%}. Cambia la esquina o reduce el tamaño.")
+        raise ValueError(f"Encaje visible de {coverage:.0%}. Cambia la esquina o reduce el tamaño.")
     output = image.copy()
     composite(output, texture, quad, mask, surface)
     return Placement(output, quad, coverage, surface), flat

@@ -5,8 +5,8 @@ import cv2 as cv
 import numpy as np
 
 from .geometry import Camera, Pose
-from .placement import polygon_coverage
-from .render import box, draw_furniture_depth, furniture
+from .placement import polygon_coverage, visible_polygon
+from .render import box, cylinder, draw_furniture_depth, furniture
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,10 @@ MODELS = {
     "consola": Model((.75, .24, .57), (103, 137, 171), (55, 63, 73)),
     "mostrador": Model((.77, .38, .72), (155, 169, 184), (100, 111, 123), "counter"),
     "estanteria": Model((.64, .27, .83), (100, 143, 179), (79, 111, 139), "shelves"),
+    "mesa_redonda": Model((.53, .53, .42), (114, 155, 192), (65, 69, 74), "round"),
+    "aparador": Model((.70, .30, .43), (123, 157, 188), (77, 116, 146), "counter"),
+    "puf": Model((.35, .35, .24), (117, 144, 96), (74, 91, 66), "ottoman"),
+    "lampara_de_pie": Model((.31, .31, .82), (176, 206, 232), (78, 85, 89), "lamp"),
 }
 
 
@@ -86,9 +90,12 @@ def validate_projection(parts, pose, camera):
     if np.any(pose.camera_points(points)[:, 2] <= .05):
         raise ValueError("El mueble queda demasiado cerca o detrás de la cámara.")
     projected = pose.project(points, camera)
-    if (not np.isfinite(projected).all() or np.any(projected < 0)
-            or np.any(projected >= np.array(camera.size))):
-        raise ValueError("El mueble queda fuera de la foto.")
+    if not np.isfinite(projected).all() or np.max(abs(projected)) > 1e6:
+        raise ValueError("No se puede proyectar el objeto en la foto.")
+    outline = cv.convexHull(projected.astype(np.float32)).reshape(-1, 2)
+    area, _ = visible_polygon(outline, camera.size[::-1])
+    if area < 16:
+        raise ValueError("Queda muy poco objeto visible en la foto.")
 
 
 def _floor_mesh(spec, width, depth, height):
@@ -98,6 +105,25 @@ def _floor_mesh(spec, width, depth, height):
             ("Tablero", height, np.inf)
         ]
     slab = .06 * height
+    radius = width / 2
+    if spec.kind == "round":
+        return (
+            cylinder(0, .63 * radius, slab, spec.leg_color),
+            cylinder(slab, .15 * radius, height - 2 * slab, spec.leg_color),
+            cylinder(height - slab, radius, slab, spec.top_color),
+        ), [("Tablero", height, np.inf)]
+    if spec.kind == "ottoman":
+        return (
+            cylinder(0, .83 * radius, .22 * height, spec.leg_color),
+            cylinder(.19 * height, .94 * radius, .64 * height, spec.top_color, top_radius=radius),
+            cylinder(.83 * height, radius, .17 * height, spec.top_color, top_radius=.89 * radius),
+        ), []
+    if spec.kind == "lamp":
+        return (
+            cylinder(0, .76 * radius, slab, spec.leg_color),
+            cylinder(slab, .10 * radius, .77 * height, spec.leg_color),
+            cylinder(.77 * height, radius, .23 * height, spec.top_color, top_radius=.60 * radius),
+        ), []
     if spec.kind == "counter":
         body = box(-.46*width, -.44*depth, 0, .92*width, .88*depth, height-slab, spec.leg_color)
         top = box(-width/2, -depth/2, height-slab, width, depth, slab, spec.top_color)
@@ -136,10 +162,11 @@ def prepare_furniture(mask, floor, wall, intrinsics, anchor, *,
     quad = pose.project(np.column_stack((boundary, np.zeros(4))), camera).astype(np.float32)
     coverage = polygon_coverage(quad, mask)
     if coverage < .96:
-        raise ValueError(f"Solo el {coverage:.0%} de la base coincide con suelo libre detectado.")
+        raise ValueError(f"Solo el {coverage:.0%} de la base visible coincide con suelo libre detectado.")
+    usable = .64 if spec.kind == "round" else .87 if spec.kind == "shelves" else .95
     supports = tuple(
         Support(name, Pose(pose.rotation, pose.camera_points([[0, 0, z]]).reshape(3, 1)),
-                camera, rectangle(width * (.87 if spec.kind == "shelves" else .95), depth * .95),
+                camera, rectangle(width * usable, depth * (.64 if spec.kind == "round" else .95)),
                 clearance)
         for name, z, clearance in levels
     )
@@ -175,6 +202,8 @@ def _support_shadow(image, layers, support, depth):
 def _ambient_gain(image, footprint):
     x, y, w, h = cv.boundingRect(footprint)
     patch = image[max(0, y - 12):y + h + 12, max(0, x - 12):x + w + 12]
+    if not patch.size:
+        return 1.
     channel = np.median(patch[::3, ::3], axis=(0, 1)) / 255
     neutral = channel.mean()
     return np.clip(.80 + .40 * neutral + .22 * (channel - neutral), .78, 1.15)

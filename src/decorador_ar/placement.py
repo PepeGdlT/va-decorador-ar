@@ -17,6 +17,14 @@ class Placement:
     surface: str
 
 
+def visible_polygon(polygon, shape):
+    """Clip a convex projection to the photograph, keeping its original coordinates."""
+    height, width = shape[:2]
+    frame = np.float32([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]])
+    area, intersection = cv.intersectConvexConvex(np.asarray(polygon, np.float32), frame)
+    return area, intersection.reshape(-1, 2) if area > 0 else np.empty((0, 2), np.float32)
+
+
 def polygon_coverage(polygon, region):
     footprint = cv.fillConvexPoly(
         np.zeros(region.shape, np.uint8), np.rint(polygon).astype(np.int32), 1

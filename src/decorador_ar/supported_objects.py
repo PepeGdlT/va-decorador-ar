@@ -6,7 +6,7 @@ from .geometry import Camera, Pose
 from .photo_furniture import FurnitureLayer, Support, ground_pose, rectangle, validate_projection
 from .render import box, cylinder
 
-ACCESSORIES = ("plato", "libros", "maceta", "jarron")
+ACCESSORIES = ("plato", "libros", "maceta", "jarron", "taza", "cuenco", "bandeja")
 
 
 def support_points(pose, camera, pixels):
@@ -49,6 +49,25 @@ def mark_support(scene, corners, height):
 
 
 def _mesh(name):
+    if name == "taza":
+        return .128, .096, (
+            cylinder(0, .039, .071, (166, 132, 76), top_radius=.045),
+            cylinder(.070, .036, .002, (60, 70, 69)),
+            box(.035, -.012, .052, .027, .024, .011, (166, 132, 76)),
+            box(.051, -.012, .025, .011, .024, .031, (166, 132, 76)),
+            box(.035, -.012, .021, .027, .024, .010, (166, 132, 76)),
+        )
+    if name == "cuenco":
+        return .156, .156, (
+            cylinder(0, .049, .037, (96, 180, 212), top_radius=.078),
+            cylinder(.036, .067, .002, (122, 203, 230)),
+        )
+    if name == "bandeja":
+        return .22, .13, (
+            box(-.11, -.065, 0, .22, .13, .012, (86, 124, 160)),
+            box(-.11, -.065, .012, .22, .009, .010, (70, 108, 143)),
+            box(-.11, .056, .012, .22, .009, .010, (70, 108, 143)),
+        )
     if name == "plato":
         return .204, .204, (
             cylinder(0, .068, .008, (222, 223, 214), top_radius=.101),

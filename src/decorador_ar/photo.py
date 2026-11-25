@@ -23,14 +23,15 @@ SUPPORT_CLASSES = {
 class Segmenter:
     model_id = MODEL
 
-    def __init__(self, revision=None):
+    def __init__(self, revision=None, *, model_id=MODEL):
         import torch
-        from transformers import AutoImageProcessor, SegformerForSemanticSegmentation
+        from transformers import AutoImageProcessor, AutoModelForSemanticSegmentation
 
-        revision = revision or MODEL_REVISION
+        revision = revision or (MODEL_REVISION if model_id == MODEL else None)
+        self.model_id = model_id
         self.torch = torch
-        self.processor = AutoImageProcessor.from_pretrained(MODEL, revision=revision, use_fast=False)
-        self.model = SegformerForSemanticSegmentation.from_pretrained(MODEL, revision=revision)
+        self.processor = AutoImageProcessor.from_pretrained(model_id, revision=revision, use_fast=False)
+        self.model = AutoModelForSemanticSegmentation.from_pretrained(model_id, revision=revision)
         self.model.eval()
         self.revision = self.model.config._commit_hash or revision
         self.indices = {

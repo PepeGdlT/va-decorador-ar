@@ -4,12 +4,25 @@ import cv2 as cv
 import numpy as np
 
 from decorador_ar.geometry import Camera, Pose
-from decorador_ar.photo_furniture import Support, rectangle
+from decorador_ar.photo_furniture import Support, rectangle, validate_projection
 from decorador_ar.render import box, draw_furniture_depth
 from decorador_ar.supported_objects import prepare_accessory, support_points
 
 
 class FurnitureDepthTest(unittest.TestCase):
+    def test_partially_visible_mesh_renders_at_frame_edge(self):
+        camera = Camera(np.array([[80., 0, 48], [0, 80., 48], [0, 0, 1]]),
+                        np.zeros(5), (96, 96))
+        pose = Pose(np.zeros((3, 1)), np.zeros((3, 1)))
+        clipped = box(-1.5, -.4, 2., .6, .8, .2, (200, 200, 200))
+        validate_projection((clipped,), pose, camera)
+        image = np.zeros((96, 96, 3), np.uint8)
+        draw_furniture_depth(image, (clipped,), pose, camera)
+        self.assertTrue(image[:, 0].any())
+        hidden = box(-3., -.4, 2., .6, .8, .2, (200, 200, 200))
+        with self.assertRaisesRegex(ValueError, "poco objeto visible"):
+            validate_projection((hidden,), pose, camera)
+
     def test_front_face_wins_independently_of_mesh_order(self):
         camera = Camera(np.array([[80., 0, 48], [0, 80., 48], [0, 0, 1]]),
                         np.zeros(5), (96, 96))
